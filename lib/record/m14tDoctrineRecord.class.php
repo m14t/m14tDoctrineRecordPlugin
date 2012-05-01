@@ -5,7 +5,7 @@ abstract class m14tDoctrineRecord extends sfDoctrineRecord {
   /**
    * executes a MySQL INSERT ... ON DUPLICATE KEY UPDATE query.
    *
-   * This is similar to a REPLACE query except when there is a 
+   * This is similar to a REPLACE query except when there is a
    * similarly existing row, it will update that row inplace.
    *
    * REPLACE essentially does a DROP followed by an INSERT, which
@@ -36,6 +36,15 @@ abstract class m14tDoctrineRecord extends sfDoctrineRecord {
 
     $modified = $this->getModified();
     if ( 0 < count($modified) ) {
+
+      //-- for mysql_escape
+      if ( null === $conn->getOption('link') ) {
+        $conn->setOption('link', mysql_connect(
+          preg_replace('/.*host=([^;]*);.*/', '\1', $conn->getOption('dsn')),
+          $conn->getOption('username'),
+          $conn->getOption('password')
+        ));
+      }
 
       /*
       //-- FIXME:  Should we also do the following?
