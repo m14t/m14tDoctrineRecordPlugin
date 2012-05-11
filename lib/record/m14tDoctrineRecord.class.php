@@ -37,21 +37,12 @@ abstract class m14tDoctrineRecord extends sfDoctrineRecord {
     $modified = $this->getModified();
     if ( 0 < count($modified) ) {
 
-      //-- for mysql_escape
-      if ( null === $conn->getOption('link') ) {
-        $conn->setOption('link', mysql_connect(
-          preg_replace('/.*host=([^;]*);.*/', '\1', $conn->getOption('dsn')),
-          $conn->getOption('username'),
-          $conn->getOption('password')
-        ));
-      }
-
       /*
       //-- FIXME:  Should we also do the following?
       $this->assignInheritanceValues();
       */
 
-      $sql = $this->generateInsertOrUpdateSql();
+      $sql = $this->generateInsertOrUpdateSql($conn);
       $conn->execute($sql);
 
       //-- Save the ID
@@ -71,7 +62,7 @@ abstract class m14tDoctrineRecord extends sfDoctrineRecord {
    *
    * @return string    SQL query.
    */
-  protected function generateInsertOrUpdateSql() {
+  protected function generateInsertOrUpdateSql(Doctrine_Connection_Mysql $conn) {
     $modified = $this->getModified();
     $table = $this->getTable();
     $table_name = $table->getTableName();
@@ -89,9 +80,9 @@ abstract class m14tDoctrineRecord extends sfDoctrineRecord {
         $keys[] = $k;
       }
       if ( $v instanceof Doctrine_Record ) {
-        $vals[] = sprintf("'%s'", $v['id']);
+        $vals[] = $conn->quote($v['id']);
       } else {
-        $vals[] = sprintf("'%s'", mysql_real_escape_string($v));
+        $vals[] = $conn->quote($v);
       }
     }
 
