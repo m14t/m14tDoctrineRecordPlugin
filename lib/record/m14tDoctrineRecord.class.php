@@ -33,6 +33,8 @@ abstract class m14tDoctrineRecord extends sfDoctrineRecord {
     //-- The preSave Event could trigger some field modifications
     //   so make sure we run this before $this->getModified()
     $event = $this->invokeSaveHooks('pre', 'save');
+    $event = $this->invokeSaveHooks('pre', 'insert');
+    $event = $this->invokeSaveHooks('pre', 'update');
 
     $modified = $this->getModified();
     if ( 0 < count($modified) ) {
@@ -50,6 +52,8 @@ abstract class m14tDoctrineRecord extends sfDoctrineRecord {
       $this->set('id', $id, false);
 
       $this->invokeSaveHooks('post', 'save', $event);
+      $this->invokeSaveHooks('post', 'insert', $event);
+      $this->invokeSaveHooks('post', 'update', $event);
 
       return true;
     }
