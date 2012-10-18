@@ -44,8 +44,10 @@ abstract class m14tDoctrineRecord extends sfDoctrineRecord {
       $this->assignInheritanceValues();
       */
 
-      $sql = $this->generateInsertOrUpdateSql($conn);
-      $conn->execute($sql);
+      $kvs = $this->generageKeyValues();
+      $sql = $this->generateInsertOrUpdateSql($kvs['keys']);
+
+      $conn->exec($sql, $kvs['params']);
 
       //-- Save the ID
       $id = $conn->lastInsertId();
@@ -66,17 +68,40 @@ abstract class m14tDoctrineRecord extends sfDoctrineRecord {
    *
    * @return string    SQL query.
    */
-  protected function generateInsertOrUpdateSql(Doctrine_Connection_Mysql $conn) {
-    $modified = $this->getModified();
+  protected function generateInsertOrUpdateSql($keys) {
+
     $table = $this->getTable();
     $table_name = $table->getTableName();
+    $values = array_fill(0, count($keys), '?');
+
+    $sql = sprintf(
+      'INSERT INTO %s (%s) VALUES (%s) ON DUPLICATE KEY UPDATE %s=LAST_INSERT_ID(%s), %s;',
+      $table_name,
+      implode(', ', $keys),
+      implode(', ', $values),
+      'id',  //-- FIXME:  Make this dynamically get the primary key
+      'id',  //-- FIXME:  Make this dynamically get the primary key
+      implode(', ', array_map(
+        function($k, $v) { return "$k = $v"; },
+        $keys,
+        $values
+      ))
+    );
+
+    return $sql;
+  }
+
+
+  protected function generageKeyValues() {
+    $modified = $this->getModified();
+    $table = $this->getTable();
     $relations = array();
     foreach ( $table->getRelations() as $relation) {
       $relations[$relation->getLocal()] = $relation->getLocalFieldName();
     }
 
     $keys = array();
-    $vals = array();
+    $params = array();
     foreach ( $modified as $k => $v ) {
       if ( array_key_exists($k, $relations) ) {
         $keys[] = $relations[$k];
@@ -84,27 +109,23 @@ abstract class m14tDoctrineRecord extends sfDoctrineRecord {
         $keys[] = $k;
       }
       if ( $v instanceof Doctrine_Record ) {
-        $vals[] = $conn->quote($v['id']);
+        $params[] = $v['id'];
       } else {
-        $vals[] = $conn->quote($v);
+        $params[] = $v;
       }
     }
 
-    $sql = sprintf(
-      'INSERT INTO %s (%s) VALUES (%s) ON DUPLICATE KEY UPDATE %s=LAST_INSERT_ID(%s), %s;',
-      $table_name,
-      implode(', ', $keys),
-      implode(', ', $vals),
-      'id',  //-- FIXME:  Make this dynamically get the primary key
-      'id',  //-- FIXME:  Make this dynamically get the primary key
-      implode(', ', array_map(
-        function($k, $v) { return "$k = $v"; },
-        $keys,
-        $vals
-      ))
-    );
+    //-- Repeat all of the params since we will need them doubled up when
+    //   passed to the exec().  Once for the INSERT, once for the UPDATE
+    $count = count($params);
+    for ( $i = 0; $i < $count ; $i++ ) {
+      $params[] = $params[$i];
+    }
 
-    return $sql;
+    return array(
+      'keys' => $keys,
+      'params' => $params,
+    );
   }
 
 
